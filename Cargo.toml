@@ -1,0 +1,22 @@
+[package]
+name = "tetris"
+version = "0.1.0"
+authors = ["Georgios Oxinos <oxinosg@gmail.com>"]
+edition = "2018"
+
+[profile.release]
+opt-level = 's'     # Optimize for size.
+lto = true          # Enable Link Time Optimization
+codegen-units = 1   # Reduce number of codegen units to increase optimizations.
+
+[dependencies]
+log = "0.4"
+rand = { version = "0.7", features = ["stdweb"] }
+strum = "0.13"
+strum_macros = "0.13"
+serde = "1"
+serde_derive = "1"
+stdweb = "0.4.20"
+yew = "0.11.0"
+web_logger = "0.2"
+lazy_static = "1.4.0"

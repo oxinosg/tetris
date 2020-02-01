@@ -1,0 +1,62 @@
+table {
+  border: solid;
+  background: lightgray;
+  position: relative;
+}
+
+.game-over {
+  color: red;
+  font-size: 32px;
+  height: 50%;
+  position: absolute;
+  top: 20%;
+  width: 100%;
+}
+
+.cell-E {
+  width: 14px;
+  height: 14px;
+}
+
+
+.cell-Z {
+  background: red;
+  width: 14px;
+  height: 14px;
+}
+
+.cell-S {
+  background: green;
+  width: 14px;
+  height: 14px;
+}
+
+.cell-O {
+  background: yellow;
+  width: 14px;
+  height: 14px;
+}
+
+.cell-T {
+  background: violet;
+  width: 14px;
+  height: 14px;
+}
+
+.cell-L {
+  background: orange;
+  width: 14px;
+  height: 14px;
+}
+
+.cell-I {
+  background: skyblue;
+  width: 14px;
+  height: 14px;
+}
+
+.cell-J {
+  background: darkblue;
+  width: 14px;
+  height: 14px;
+}
