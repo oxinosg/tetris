@@ -1,9 +1,0 @@
-* TODO set storage for high scores through cloudflare web worker kv
-* TODO [lib.rs] colision [[file:/home/ggz/Dev/tetris/src/lib.rs::// TODO colision][src]] [2020-01-27 Mon]
-* TODO [lib.rs] add colision here [[file:/home/ggz/Dev/tetris/src/lib.rs::// TODO add colision here][src]] [2020-01-27 Mon]
-* TODO [lib.rs] add rotation here [[file:/home/ggz/Dev/tetris/src/lib.rs::// TODO add rotation here][src]] [2020-01-27 Mon]
-* TODO [lib.rs] add rotation position checks here [[file:/home/ggz/Dev/tetris/src/lib.rs::// TODO add rotation position checks here][src]] [2020-01-27 Mon]
-* TODO [lib.rs] only rotates 2 ways, not round :/ [[file:/home/ggz/Dev/tetris/src/lib.rs::// TODO only rotates 2 ways, not round :/][src]] [2020-01-29 Wed]
-* TODO [lib.rs] check if previous piece is not the same [[file:/home/ggz/Dev/tetris/src/lib.rs::// TODO check if previous piece is not the same][src]] [2020-01-30 Thu]
-* TODO [lib.rs] clear completed lines [[file:/home/ggz/Dev/tetris/src/lib.rs::// TODO clear completed lines][src]] [2020-01-30 Thu]
-* TODO [lib.rs] if button is held down, call down with distance instead of calling it multiple times [[file:/home/ggz/Dev/tetris/src/lib.rs::// TODO if button is held down, call down with distance instead of calling it multiple times][src]] [2020-02-01 Sat]

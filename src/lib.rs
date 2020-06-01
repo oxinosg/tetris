@@ -239,6 +239,7 @@ pub enum Controls {
     Left,
     Right,
     Down,
+    Bottom,
     Rotate,
     Pause,
 }
@@ -274,7 +275,7 @@ fn initialize_player() -> Player {
 
 fn initialize_game_status() -> GameStatus {
     let game: GameStatus = GameStatus {
-        level: 1,
+        level: 16,
         rows_cleared: 0,
         score: 0,
         game_over: false,
@@ -282,7 +283,6 @@ fn initialize_game_status() -> GameStatus {
     game
 }
 
-// TODO check if previous piece is not the same
 fn get_random_piece() -> PieceType {
     let mut rng = rand::thread_rng();
     let num = rng.gen_range(0, 7);
@@ -299,6 +299,35 @@ fn get_random_piece() -> PieceType {
     piece
 }
 
+pub fn fibonacci(n: usize) -> f64 {
+    let n = n + 3;
+    if n == 0 {
+        panic!("zero is not a right argument to fibonacci()!");
+    } else if n == 1 {
+        return 1.0;
+    }
+
+    let mut sum = 0.0;
+    let mut last = 0.0;
+    let mut curr = 1.0;
+    for _ in 1..n + 1 {
+        sum = last + (curr / 2.0);
+        last = curr;
+        curr = sum;
+    }
+
+    sum
+}
+
+fn get_duration(level: usize) -> f64 {
+    let mut sum: f64 = 1000.0;
+    for i in 6..7 + level {
+        sum = sum - (1000.0 / fibonacci(i));
+    }
+    info!("final sum: {}", sum);
+    sum
+}
+
 impl Component for Model {
     type Message = Msg;
     type Properties = ();
@@ -306,7 +335,6 @@ impl Component for Model {
     fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
         let storage = StorageService::new(Area::Local);
 
-        // let cb = link.callback(|_| Msg::Move(Controls::Down));
         let interval = IntervalService::new();
 
         let entries = {
@@ -322,7 +350,7 @@ impl Component for Model {
             filter: Filter::All,
             value: "".into(),
             edit_value: "".into(),
-            stage: initialize_stage(20, 10),
+            stage: initialize_stage(21, 10),
             player: initialize_player(),
             game_status: initialize_game_status(),
         };
@@ -333,21 +361,35 @@ impl Component for Model {
                 link_clone.send_message(Msg::StartPause);
             } else if event.key() == "ArrowRight" {
                 info!("Right key pressed");
-                link_clone.send_message(Msg::Move(Controls::Right));
+                link_clone.send_message_batch(vec![
+                    Msg::Move(Controls::Right),
+                    Msg::Cancel,
+                    Msg::StartInterval,
+                ]);
             } else if event.key() == "ArrowLeft" {
                 info!("Left key pressed");
-                link_clone.send_message(Msg::Move(Controls::Left));
+                link_clone.send_message_batch(vec![
+                    Msg::Move(Controls::Left),
+                    Msg::Cancel,
+                    Msg::StartInterval,
+                ]);
             } else if event.key() == "ArrowDown" {
-                // TODO if button is held down, call down with distance instead of calling it multiple times
                 info!("Down key pressed");
                 link_clone.send_message_batch(vec![
-                    Msg::Move(Controls::Down),
+                    Msg::Move(Controls::Bottom),
                     Msg::Cancel,
                     Msg::StartInterval,
                 ]);
             } else if event.key() == "ArrowUp" {
+                // TODO when checking for colision on rotation, if bottom is not allowed, move up
                 info!("Up key pressed");
-                link_clone.send_message(Msg::Move(Controls::Rotate));
+                // TODO only cancel/start interval when next down will colide
+                link_clone.send_message_batch(vec![
+                    Msg::Move(Controls::Rotate),
+                    Msg::Cancel,
+                    Msg::StartInterval,
+                ]);
+                // TODO allow rotation when position is < 0 || > max
             }
         });
 
@@ -365,6 +407,9 @@ impl Component for Model {
         match msg {
             Msg::StartPause => {
                 if self.job.is_none() {
+                    if self.state.game_status.game_over {
+                        self.state.initialize_game();
+                    }
                     info!("Starting game!");
                     self.link.send_message(Msg::StartInterval);
                 } else {
@@ -374,17 +419,14 @@ impl Component for Model {
             }
             Msg::StartInterval => {
                 {
-                    let duration: u64 = 1000 / (self.state.game_status.level + 1) as u64;
+                    let duration: u64 = get_duration(self.state.game_status.level) as u64;
+                    info!("Duration: {}", duration);
                     let handle = self
                         .interval
                         .spawn(Duration::from_millis(duration), self.callback_tick.clone());
                     self.job = Some(Box::new(handle));
                 }
                 info!("Interval started!");
-                // self.messages.clear();
-                // self.console.clear();
-                // self.messages.push("Interval started!");
-                // self.console.log("Interval started!");
             }
             Msg::Cancel => {
                 if let Some(mut task) = self.job.take() {
@@ -398,44 +440,74 @@ impl Component for Model {
             Msg::Tick => {
                 info!("Tick..");
                 self.link.send_message(Msg::Move(Controls::Down));
-                // self.messages.push("Tick...");
-                // self.console.count_named("Tick");
             }
-            Msg::Move(control) => match control {
-                Controls::Left => {
-                    if self.is_move_allowed(Controls::Left) {
-                        self.state.player.position.x = self.state.player.position.x - 1
-                    }
-                }
-                Controls::Right => {
-                    if self.is_move_allowed(Controls::Right) {
-                        self.state.player.position.x = self.state.player.position.x + 1
-                    }
-                }
-                Controls::Down => {
-                    if self.is_move_allowed(Controls::Down) {
-                        self.state.player.position.y = self.state.player.position.y + 1
-                    } else {
-                        if self.state.player.position.y <= 0 {
-                            self.state.game_over();
-                        } else {
-                            self.state.add_player_piece_stage();
-
-                            let rows = self.get_completed_rows();
-                            if rows.len() != 0 {
-                                self.state.update_game_state(rows.len());
-                                self.state.remove_rows(rows);
+            Msg::Move(control) => {
+                if !self.state.game_status.game_over {
+                    match control {
+                        Controls::Left => {
+                            if self.is_move_allowed(Controls::Left, None) {
+                                self.state.player.position.x = self.state.player.position.x - 1
                             }
                         }
+                        Controls::Right => {
+                            if self.is_move_allowed(Controls::Right, None) {
+                                self.state.player.position.x = self.state.player.position.x + 1
+                            }
+                        }
+                        Controls::Bottom => loop {
+                            if self.is_move_allowed(Controls::Down, None) {
+                                self.state.player.position.y = self.state.player.position.y + 1
+                            } else {
+                                if self.state.player.position.y <= 0 {
+                                    self.state.game_over();
+                                    self.link.send_message(Msg::Cancel);
+                                } else {
+                                    self.state.add_player_piece_stage();
+
+                                    let rows = self.get_completed_rows();
+                                    if rows.len() != 0 {
+                                        self.state.update_game_state(rows.len());
+                                        self.state.remove_rows(rows);
+                                    }
+                                }
+                                break;
+                            }
+                        },
+                        Controls::Down => {
+                            if self.is_move_allowed(Controls::Down, None) {
+                                self.state.player.position.y = self.state.player.position.y + 1
+                            } else {
+                                if self.state.player.position.y <= 0 {
+                                    self.state.game_over();
+                                    self.link.send_message(Msg::Cancel);
+                                } else {
+                                    self.state.add_player_piece_stage();
+
+                                    let rows = self.get_completed_rows();
+                                    if rows.len() != 0 {
+                                        self.state.update_game_state(rows.len());
+                                        self.state.remove_rows(rows);
+                                    }
+                                }
+                            }
+                        }
+                        Controls::Rotate => {
+                            if self.is_move_allowed(Controls::Rotate, None) {
+                                self.state.rotate_player_piece();
+                            } else {
+                                let position = Position {
+                                    x: self.state.player.position.x,
+                                    y: self.state.player.position.y - 1,
+                                };
+                                if self.is_move_allowed(Controls::Rotate, Some(position)) {
+                                    self.state.rotate_player_piece();
+                                }
+                            }
+                        }
+                        Controls::Pause => todo!(),
                     }
                 }
-                Controls::Rotate => {
-                    if self.is_move_allowed(Controls::Rotate) {
-                        self.state.rotate_player_piece();
-                    }
-                }
-                Controls::Pause => todo!(),
-            },
+            }
         }
         self.storage.store(KEY, Json(&self.state.entries));
         true
@@ -484,9 +556,12 @@ impl Component for Model {
               </table>
             { if self.state.game_status.game_over {
                 html! {
+                    <>
                     <div class="game-over">
                     {"Game Over"}
                     </div>
+                        <p>{"Press Enter to start over"}</p>
+                        </>
                 }
             } else {
                 html! {}
@@ -654,8 +729,17 @@ impl Model {
             && self.is_player_position_valid(x, y, Some(rotated_piece.clone()))
     }
 
-    fn is_move_allowed(&self, control: Controls) -> bool {
-        let Position { x, y } = self.state.player.position;
+    fn is_move_allowed(&self, control: Controls, position: Option<Position>) -> bool {
+        let x: isize;
+        let y: isize;
+
+        if let Some(position) = position {
+            x = position.x;
+            y = position.y;
+        } else {
+            x = self.state.player.position.x;
+            y = self.state.player.position.y;
+        }
 
         match control {
             Controls::Left => {
@@ -676,7 +760,7 @@ impl Model {
                     false
                 }
             }
-            Controls::Down => {
+            Controls::Bottom | Controls::Down => {
                 if self.is_player_position_valid(x, y + 1, None)
                     && self.is_position_empty(x, y + 1, None)
                 {
@@ -725,6 +809,11 @@ impl Filter {
 }
 
 impl State {
+    fn initialize_game(&mut self) {
+        self.stage = initialize_stage(21, 10);
+        self.game_status = initialize_game_status();
+    }
+
     fn add_player_piece_stage(&mut self) {
         let Vec2D {
             n_rows: stage_rows,
@@ -757,7 +846,13 @@ impl State {
                 }
             }
         }
-        let random_piece: PieceType = get_random_piece();
+        let mut random_piece: PieceType;
+        loop {
+            random_piece = get_random_piece();
+            if random_piece != self.player.piece_type {
+                break;
+            }
+        }
         let piece_shape = PIECES.get(random_piece.as_ref()).unwrap().shape.clone();
         self.player.piece_type = random_piece;
         self.player.piece_shape = piece_shape;
@@ -767,7 +862,6 @@ impl State {
 
     fn update_game_state(&mut self, rows_cleared: usize) {
         if rows_cleared > 0 {
-            let level: usize = (rows_cleared / 10) + 1;
             let score: usize = match rows_cleared {
                 1 => 40 * self.game_status.level,
                 2 => 100 * self.game_status.level,
@@ -775,6 +869,7 @@ impl State {
                 _ => 1200 * self.game_status.level,
             };
             let rows_cleared = self.game_status.rows_cleared + rows_cleared;
+            let level: usize = (rows_cleared / 10) + 1;
             self.game_status = GameStatus {
                 level,
                 score: self.game_status.score + score,
